@@ -1,0 +1,42 @@
+QSplitter::handle {
+	margin: 0px;
+	border-width: 0px;
+	border-style: solid;
+	padding: 0px;
+	width: 0px;
+}
+
+QTreeView {
+	margin: 0px;
+	border-width: 0px;
+	border-style: solid;
+	padding: 0px;
+	padding-top: 25px;
+	padding-bottom: 25px;
+
+        background: #2d3235;
+        font: 14px;
+}
+
+QTreeView:disabled {
+	background: #E6E6E6;
+}
+
+QTreeView::item {
+	color: white;
+	margin-bottom: 10px;
+	height: 40px;
+}
+
+QTextEdit {
+	margin: 0px;
+	border-width: 0px;
+	border-style: solid;
+	padding: 25px;
+
+	background: white;
+}
+
+QTextEdit:disabled {
+	background: #E6E6E6;
+}
