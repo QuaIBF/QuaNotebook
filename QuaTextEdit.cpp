@@ -24,7 +24,7 @@ QuaTextEdit::QuaTextEdit(QWidget *aParent) : QTextEdit(aParent)
     //
     //  Connect signals and slots
     //
-    QObject::connect(this, SIGNAL(textChanged()), this, SLOT(on_mNotesTextEdit_textChanged()));
+    //QObject::connect(this, SIGNAL(textChanged()), this, SLOT(on_mNotesTextEdit_textChanged()));
 }
 
 QuaTextEdit::~QuaTextEdit()

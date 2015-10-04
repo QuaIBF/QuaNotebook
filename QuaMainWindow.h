@@ -21,6 +21,8 @@
 #include <QFileIconProvider>
 #include <QDesktopWidget>
 
+#include "QuaZIP/JlCompress.h"
+
 #include "IBFTreeView.h"
 #include "QuaTextEdit.h"
 #include "IBFWebView.h"

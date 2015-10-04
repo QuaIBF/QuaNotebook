@@ -59,7 +59,33 @@ IBFMainWindow::~IBFMainWindow()
 
 bool IBFMainWindow::IBFNewDocument()
 {
-    mQuaTextEdit->clear();
+    if ( this->isWindowModified() )
+    {
+        QMessageBox::StandardButton tStandardButton;
+
+        tStandardButton = QMessageBox::warning(this, tr("Save document?"), tr("The document has been modified. Do you want to save your changes? Your changes will be lost if you don't save them."), QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+
+        if ( tStandardButton == QMessageBox::Save )
+        {
+            if ( !this->IBFSaveDocument() )
+            {
+                QMessageBox::critical(NULL, "Critical Error", "Something went wrong with this->IBFSaveDocument()...", QMessageBox::Ok);
+                return false;
+            }
+        }
+        else if ( tStandardButton == QMessageBox::Cancel )
+        {
+            return false;
+        }
+    }
+
+    //QMessageBox::critical(NULL, "Critical Error", "So far so good...", QMessageBox::Ok);
+
+    if ( !this->QuaCloseDocument() )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with this->QuaCloseDocument()...", QMessageBox::Ok);
+        return false;
+    }
 
     mIBFTemporaryDir = new QTemporaryDir();
 
@@ -67,6 +93,8 @@ bool IBFMainWindow::IBFNewDocument()
     {
         return false;
     }
+
+    // create one folder and one file.
 
     mIBFFileSystemModel = new QFileSystemModel();
     mIBFFileSystemModel->setRootPath(mIBFTemporaryDir->path());
@@ -79,24 +107,16 @@ bool IBFMainWindow::IBFNewDocument()
     mIBFTreeView->setColumnHidden(1, true);
     mIBFTreeView->setColumnHidden(2, true);
     mIBFTreeView->setColumnHidden(3, true);
-
     mIBFTreeView->setWordWrap(true);
 
-    QObject::connect(mIBFTreeView->selectionModel(),
-                     SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)),
-                     this,
-                     SLOT(on_mIBFTreeView_selectionChanged_triggered(const QModelIndex &, const QModelIndex &)));
-
+    QObject::connect(mIBFTreeView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)), this, SLOT(on_mIBFTreeView_selectionChanged_triggered(const QModelIndex &, const QModelIndex &)));
 
     mIBFTreeView->setEnabled(true);
-    mQuaTextEdit->setEnabled(true);
-
     mIBFTreeView->setFocus();
-    mIBFTreeView->setCurrentIndex(mIBFFileSystemModel->index(0, 0, mIBFTreeView->rootIndex()));
 
     this->setWindowFilePath("");
+    this->setWindowModified(true);
     this->IBFUpdateTitle();
-    this->setWindowModified(false);
 
     return true;
 }
@@ -115,9 +135,10 @@ bool IBFMainWindow::IBFOpenDocument()
         return false;
     }
 
-    if ( mIBFDocument )
+    if ( !this->QuaCloseDocument() )
     {
-        // delete
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with this->QuaCloseDocument()...", QMessageBox::Ok);
+        return false;
     }
 
     mIBFDocument = new QFile(tFileName);
@@ -127,11 +148,6 @@ bool IBFMainWindow::IBFOpenDocument()
         return false;
     }
 
-    if ( mIBFTemporaryDir )
-    {
-        // delete
-    }
-
     mIBFTemporaryDir = new QTemporaryDir();
 
     if ( !mIBFTemporaryDir->isValid() )
@@ -139,19 +155,10 @@ bool IBFMainWindow::IBFOpenDocument()
         return false;
     }
 
-
-    // change to qua zip
-    QProcess * tProcess = new QProcess(this);
-
-    QString tProgram = "unzip";
-    QStringList tArguments;
-    tArguments << tFileName << "-d" << mIBFTemporaryDir->path();
-
-    tProcess->start(tProgram, tArguments);
-
-    if ( mIBFFileSystemModel )
+    if ( JlCompress::extractDir(tFileName, mIBFTemporaryDir->path()).isEmpty() )
     {
-        // delete
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with JlCompress::extractDir(aString, mTemporaryDir->path()).isEmpty()...", QMessageBox::Ok);
+        return false;
     }
 
     mIBFFileSystemModel = new QFileSystemModel();
@@ -165,20 +172,10 @@ bool IBFMainWindow::IBFOpenDocument()
     mIBFTreeView->setColumnHidden(1, true);
     mIBFTreeView->setColumnHidden(2, true);
     mIBFTreeView->setColumnHidden(3, true);
-
     mIBFTreeView->setWordWrap(true);
 
-    QObject::connect(mIBFTreeView->selectionModel(),
-                     SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)),
-                     this,
-                     SLOT(on_mIBFTreeView_selectionChanged_triggered(const QModelIndex &, const QModelIndex &)));
-
-    QObject::connect(mIBFFileSystemModel,
-                     SIGNAL(fileRenamed(QString,QString,QString)),
-                     this,
-                     SLOT(on_mIBFFileSystemModel_fileRenamed_triggered(QString,QString,QString)));
-
-
+    QObject::connect(mIBFTreeView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)), this, SLOT(on_mIBFTreeView_selectionChanged_triggered(const QModelIndex &, const QModelIndex &)));
+    QObject::connect(mIBFFileSystemModel, SIGNAL(fileRenamed(QString,QString,QString)), this, SLOT(on_mIBFFileSystemModelDirs_fileRenamed_triggered(QString,QString,QString)));
 
     mIBFTreeView->setEnabled(true);
     mIBFTreeView->setFocus();
@@ -200,7 +197,7 @@ bool IBFMainWindow::IBFSaveDocument()
 
     if ( tFileName.isEmpty() )
     {
-        QString tFileName = QFileDialog::getSaveFileName(this, tr("Save as..."), QString(), tr("ZIP-Files (*.zip);;All Files (*)"));
+        tFileName = QFileDialog::getSaveFileName(this, tr("Save as..."), QString(), tr("ZIP-Files (*.zip);;All Files (*)"));
 
         if ( tFileName.isEmpty() )
         {
@@ -211,47 +208,38 @@ bool IBFMainWindow::IBFSaveDocument()
         {
             tFileName += ".zip";
         }
-
-        QProcess * tProcess = new QProcess(this);
-
-        QString tProgram = "zip";
-        QStringList tArguments;
-        tArguments << tArguments << "-rFS" << tFileName << "\.";
-
-        tProcess->setWorkingDirectory(mIBFTemporaryDir->path());
-        tProcess->start(tProgram, tArguments);
-
-        setWindowModified(false);
-        setWindowFilePath(tFileName);
-
-        IBFUpdateTitle();
     }
-    else
+
+    if ( !JlCompress::compressDir(tFileName, mIBFTemporaryDir->path()))
     {
-        QProcess * tProcess = new QProcess(this);
-
-        QString tProgram = "zip";
-        QStringList tArguments;
-        tArguments << tArguments << "-rFS" << tFileName << "\.";
-
-        tProcess->setWorkingDirectory(mIBFTemporaryDir->path());
-        tProcess->start(tProgram, tArguments);
-
-        tProcess->waitForFinished();
-        qDebug() << tProcess->readAllStandardOutput();
-
-        setWindowModified(false);
-        setWindowFilePath(tFileName);
-
-        IBFUpdateTitle();
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with JlCompress::compressDir(tFileName, mTemporaryDir->path())...", QMessageBox::Ok);
+        return false;
     }
+
+    if ( !QFile::exists(tFileName) )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with QFile::exists(tFileName)...", QMessageBox::Ok);
+        return false;
+    }
+
+    mIBFDocument = new QFile(tFileName);
+
+    if ( !mIBFDocument->open(QFile::ReadOnly) )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with mIBFDocument->open(QFile::ReadOnly)...", QMessageBox::Ok);
+        return false;
+    }
+
+    this->setWindowModified(false);
+    this->setWindowFilePath(tFileName);
+    this->IBFUpdateTitle();
 
     return true;
 }
 
 bool IBFMainWindow::QuaCloseDocument()
 {
-    if ( !mIBFDocument )
+    if ( mIBFDocument != NULL )
     {
         mIBFDocument->close();
 
@@ -259,7 +247,7 @@ bool IBFMainWindow::QuaCloseDocument()
         mIBFDocument = NULL;
     }
 
-    if ( !mIBFTemporaryDir )
+    if ( mIBFTemporaryDir != NULL )
     {
         mIBFTemporaryDir->remove();
 
@@ -267,7 +255,7 @@ bool IBFMainWindow::QuaCloseDocument()
         mIBFTemporaryDir = NULL;
     }
 
-   if ( !mIBFFileSystemModel )
+   if ( mIBFFileSystemModel != NULL )
    {
        delete mIBFFileSystemModel;
        mIBFFileSystemModel = NULL;
@@ -282,6 +270,15 @@ bool IBFMainWindow::QuaCloseDocument()
    {
        // disable and clear
    }
+
+   mIBFTreeView->setEnabled(false);
+   mQuaTextEdit->setEnabled(false);
+
+   this->setWindowModified(false);
+   this->setWindowFilePath("");
+   this->IBFUpdateTitle();
+
+   return true;
 }
 
 bool IBFMainWindow::IBFSetupMenuFile()
@@ -329,7 +326,7 @@ bool IBFMainWindow::IBFSetupConnections()
     connect(mQuaTextEdit, SIGNAL(signal_actionQuit()), this, SLOT(on_actionQuit_triggered()));
 
     connect(mQuaTextEdit, SIGNAL(textChanged()), this, SLOT(on_SignalModified()));
-    connect(mIBFTreeView, SIGNAL(SignalModified(bool)), this, SLOT(on_SignalModified(bool)));
+    connect(mIBFTreeView, SIGNAL(SignalModified()), this, SLOT(on_SignalModified()));
 
     return true;
 }
@@ -399,28 +396,6 @@ void IBFMainWindow::resizeEvent(QResizeEvent * e)
 
 void IBFMainWindow::on_actionNew_triggered()
 {
-    if ( this->isWindowModified() )
-    {
-        QMessageBox::StandardButton tStandardButton;
-
-        tStandardButton = QMessageBox::warning(this,
-                                               tr("Save document?"),
-                                               tr("The document has been modified. Do you want to save your changes? Your changes will be lost if you don't save them."),
-                                               QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-
-        if ( tStandardButton == QMessageBox::Save )
-        {
-            if ( !this->IBFSaveDocument() )
-            {
-                return;
-            }
-        }
-        else if ( tStandardButton == QMessageBox::Cancel )
-        {
-            return;
-        }
-    }
-
     this->IBFNewDocument();
 }
 
