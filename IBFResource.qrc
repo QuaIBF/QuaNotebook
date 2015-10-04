@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>notepad.png</file>
+    </qresource>
+    <qresource prefix="/stylesheets">
+        <file>stylesheet.css</file>
+    </qresource>
+    <qresource prefix="/mathjax"/>
+</RCC>
