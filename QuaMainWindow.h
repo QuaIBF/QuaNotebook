@@ -1,5 +1,5 @@
-#ifndef IBFMAINWINDOW_H
-#define IBFMAINWINDOW_H
+#ifndef QuaMainWindow_H
+#define QuaMainWindow_H
 
 #include <QMainWindow>
 
@@ -27,17 +27,18 @@
 #include "QuaTextEdit.h"
 #include "IBFWebView.h"
 
-class IBFMainWindow : public QMainWindow
+class QuaMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    IBFMainWindow(QWidget * aParent = 0);
-    ~IBFMainWindow();
+    QuaMainWindow(QWidget * aParent = 0);
+    ~QuaMainWindow();
 
     bool IBFNewDocument();
     bool IBFOpenDocument();
     bool IBFSaveDocument();
+    bool QuaSaveAsDocument();
     bool QuaCloseDocument();
 
     private:
@@ -74,4 +75,4 @@ public slots:
     void on_SignalModified(){ this->setWindowModified(true); }
 };
 
-#endif // IBFMAINWINDOW_H
+#endif // QuaMainWindow_H

@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
         tFile.close();
     }
 
-    IBFMainWindow w;
+    QuaMainWindow w;
     w.show();
 
     return a.exec();

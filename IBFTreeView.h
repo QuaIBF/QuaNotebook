@@ -14,31 +14,31 @@
 #include <QDebug>
 
 
-class IBFFileIconProvider : public QFileIconProvider
-{
-//    Q_OBJECT
+//class IBFFileIconProvider : public QFileIconProvider
+//{
+////    Q_OBJECT
 
-public:
-    IBFFileIconProvider()
-    {
+//public:
+//    IBFFileIconProvider()
+//    {
 
-    }
+//    }
 
-    ~IBFFileIconProvider()
-    {
+//    ~IBFFileIconProvider()
+//    {
 
-    }
+//    }
 
-    QIcon	icon(IconType type) const
-    {
-        return QIcon();
-    }
+//    QIcon	icon(IconType type) const
+//    {
+//        return QIcon();
+//    }
 
-    QIcon	icon(const QFileInfo & info) const
-    {
-        return QIcon();
-    }
-};
+//    QIcon	icon(const QFileInfo & info) const
+//    {
+//        return QIcon();
+//    }
+//};
 
 class IBFTreeView : public QTreeView
 {

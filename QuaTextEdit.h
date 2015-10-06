@@ -43,7 +43,7 @@ class QuaTextEdit : public QTextEdit
 
     QHash<QString, QString> mHashReplacement;
 
-    bool QuaSetUpLayout(){}
+    bool QuaSetUpLayout(){ return true; }
     bool QuaSetUpContextMenu();
     bool QuaSetUpHashReplacement();
 

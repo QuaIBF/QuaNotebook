@@ -1,6 +1,6 @@
 #include "QuaMainWindow.h"
 
-IBFMainWindow::IBFMainWindow(QWidget * aParent) : QMainWindow(aParent)
+QuaMainWindow::QuaMainWindow(QWidget * aParent) : QMainWindow(aParent)
 {
     mIBFDocument = NULL;
     mIBFTemporaryDir = NULL;
@@ -31,7 +31,7 @@ IBFMainWindow::IBFMainWindow(QWidget * aParent) : QMainWindow(aParent)
     this->showMaximized();
 }
 
-IBFMainWindow::~IBFMainWindow()
+QuaMainWindow::~QuaMainWindow()
 {
     if ( !mIBFDocument )
     {
@@ -57,7 +57,7 @@ IBFMainWindow::~IBFMainWindow()
 }
 
 
-bool IBFMainWindow::IBFNewDocument()
+bool QuaMainWindow::IBFNewDocument()
 {
     if ( this->isWindowModified() )
     {
@@ -114,14 +114,14 @@ bool IBFMainWindow::IBFNewDocument()
     mIBFTreeView->setEnabled(true);
     mIBFTreeView->setFocus();
 
-    this->setWindowFilePath("");
     this->setWindowModified(true);
+    this->setWindowFilePath("");
     this->IBFUpdateTitle();
 
     return true;
 }
 
-bool IBFMainWindow::IBFOpenDocument()
+bool QuaMainWindow::IBFOpenDocument()
 {
     QString tFileName = QFileDialog::getOpenFileName(this, tr("Open File..."), QString(), tr("ZIP-Files (*.zip);;All Files (*)"));
 
@@ -180,13 +180,14 @@ bool IBFMainWindow::IBFOpenDocument()
     mIBFTreeView->setEnabled(true);
     mIBFTreeView->setFocus();
 
+    this->setWindowModified(false);
     this->setWindowFilePath(tFileName);
     this->IBFUpdateTitle();
 
     return true;
 }
 
-bool IBFMainWindow::IBFSaveDocument()
+bool QuaMainWindow::IBFSaveDocument()
 {
     QString tFileName = this->windowFilePath();
 
@@ -208,6 +209,11 @@ bool IBFMainWindow::IBFSaveDocument()
         {
             tFileName += ".zip";
         }
+    }
+
+    if ( QFile::exists(tFileName) )
+    {
+        QFile::remove(tFileName);
     }
 
     if ( !JlCompress::compressDir(tFileName, mIBFTemporaryDir->path()))
@@ -237,7 +243,107 @@ bool IBFMainWindow::IBFSaveDocument()
     return true;
 }
 
-bool IBFMainWindow::QuaCloseDocument()
+bool QuaMainWindow::QuaSaveAsDocument()
+{
+    QString tFileName;
+
+    if ( mQuaTextEdit->document()->isModified() )
+    {
+        mQuaTextEdit->IBFSaveToFile(mQuaTextEdit->windowFilePath());
+    }
+
+    tFileName = QFileDialog::getSaveFileName(this, tr("Save as..."), QString(), tr("ZIP-Files (*.zip);;All Files (*)"));
+
+    if ( tFileName.isEmpty() )
+    {
+        return false;
+    }
+
+    if (! (tFileName.endsWith(".zip", Qt::CaseInsensitive) ) )
+    {
+        tFileName += ".zip";
+    }
+
+    if ( !JlCompress::compressDir(tFileName, mIBFTemporaryDir->path()))
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with JlCompress::compressDir(tFileName, mTemporaryDir->path())...", QMessageBox::Ok);
+        return false;
+    }
+
+    if ( !QFile::exists(tFileName) )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with QFile::exists(tFileName)...", QMessageBox::Ok);
+        return false;
+    }
+
+    //
+    //  Open Saved Document
+    //
+
+    if ( tFileName.isEmpty() )
+    {
+        return false;
+    }
+
+    if ( !QFile::exists(tFileName) )
+    {
+        return false;
+    }
+
+    if ( !this->QuaCloseDocument() )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with this->QuaCloseDocument()...", QMessageBox::Ok);
+        return false;
+    }
+
+    mIBFDocument = new QFile(tFileName);
+
+    if ( !mIBFDocument->open(QFile::ReadOnly) )
+    {
+        return false;
+    }
+
+    mIBFTemporaryDir = new QTemporaryDir();
+
+    if ( !mIBFTemporaryDir->isValid() )
+    {
+        return false;
+    }
+
+    if ( JlCompress::extractDir(tFileName, mIBFTemporaryDir->path()).isEmpty() )
+    {
+        QMessageBox::critical(NULL, "Critical Error", "Something went wrong with JlCompress::extractDir(aString, mTemporaryDir->path()).isEmpty()...", QMessageBox::Ok);
+        return false;
+    }
+
+    mIBFFileSystemModel = new QFileSystemModel();
+    mIBFFileSystemModel->setRootPath(mIBFTemporaryDir->path());
+    mIBFFileSystemModel->setFilter(QDir::AllEntries | QDir::NoDotAndDotDot);
+    mIBFFileSystemModel->setReadOnly(false);
+
+    mIBFTreeView->setModel(mIBFFileSystemModel);
+    mIBFTreeView->setRootIndex(mIBFFileSystemModel->index(mIBFTemporaryDir->path()));
+    mIBFTreeView->setHeaderHidden(true);
+    mIBFTreeView->setColumnHidden(1, true);
+    mIBFTreeView->setColumnHidden(2, true);
+    mIBFTreeView->setColumnHidden(3, true);
+    mIBFTreeView->setWordWrap(true);
+
+    QObject::connect(mIBFTreeView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)), this, SLOT(on_mIBFTreeView_selectionChanged_triggered(const QModelIndex &, const QModelIndex &)));
+    QObject::connect(mIBFFileSystemModel, SIGNAL(fileRenamed(QString,QString,QString)), this, SLOT(on_mIBFFileSystemModelDirs_fileRenamed_triggered(QString,QString,QString)));
+
+    mIBFTreeView->setEnabled(true);
+    mIBFTreeView->setFocus();
+
+    this->setWindowModified(false);
+    this->setWindowFilePath(tFileName);
+    this->IBFUpdateTitle();
+
+    return true;
+}
+
+
+bool QuaMainWindow::QuaCloseDocument()
 {
     if ( mIBFDocument != NULL )
     {
@@ -281,7 +387,7 @@ bool IBFMainWindow::QuaCloseDocument()
    return true;
 }
 
-bool IBFMainWindow::IBFSetupMenuFile()
+bool QuaMainWindow::IBFSetupMenuFile()
 {
     QAction * actionNew = new QAction(tr("&New"), this);
     actionNew->setShortcut(QKeySequence::New);
@@ -317,7 +423,7 @@ bool IBFMainWindow::IBFSetupMenuFile()
     return true;
 }
 
-bool IBFMainWindow::IBFSetupConnections()
+bool QuaMainWindow::IBFSetupConnections()
 {
     connect(mQuaTextEdit, SIGNAL(signal_actionNew()), this, SLOT(on_actionNew_triggered()));
     connect(mQuaTextEdit, SIGNAL(signal_actionOpen()), this, SLOT(on_actionOpen_triggered()));
@@ -331,7 +437,7 @@ bool IBFMainWindow::IBFSetupConnections()
     return true;
 }
 
-bool IBFMainWindow::IBFUpdateTitle()
+bool QuaMainWindow::IBFUpdateTitle()
 {
     if ( this->windowFilePath().isEmpty() )
     {
@@ -345,7 +451,7 @@ bool IBFMainWindow::IBFUpdateTitle()
     return true;
 }
 
-void IBFMainWindow::closeEvent(QCloseEvent *e)
+void QuaMainWindow::closeEvent(QCloseEvent *e)
 {
     if ( isWindowModified() )
     {
@@ -374,7 +480,7 @@ void IBFMainWindow::closeEvent(QCloseEvent *e)
     e->accept();
 }
 
-void IBFMainWindow::resizeEvent(QResizeEvent * e)
+void QuaMainWindow::resizeEvent(QResizeEvent * e)
 {
     if (this->width() <= QApplication::desktop()->screenGeometry().width() / 2 )
     {
@@ -394,12 +500,12 @@ void IBFMainWindow::resizeEvent(QResizeEvent * e)
     }
 }
 
-void IBFMainWindow::on_actionNew_triggered()
+void QuaMainWindow::on_actionNew_triggered()
 {
     this->IBFNewDocument();
 }
 
-void IBFMainWindow::on_actionOpen_triggered()
+void QuaMainWindow::on_actionOpen_triggered()
 {
     if ( this->isWindowModified() )
     {
@@ -423,53 +529,22 @@ void IBFMainWindow::on_actionOpen_triggered()
     this->IBFOpenDocument();
 }
 
-void IBFMainWindow::on_actionSave_triggered()
+void QuaMainWindow::on_actionSave_triggered()
 {
     this->IBFSaveDocument();
 }
 
-void IBFMainWindow::on_actionSaveAs_triggered()
+void QuaMainWindow::on_actionSaveAs_triggered()
 {
-    if ( mQuaTextEdit->document()->isModified() )
-    {
-        mQuaTextEdit->IBFSaveToFile(mQuaTextEdit->windowFilePath());
-    }
-
-    QString tFileName = QFileDialog::getSaveFileName(this, tr("Save as..."), QString(), tr("ZIP-Files (*.zip);;All Files (*)"));
-
-    if ( tFileName.isEmpty() )
-    {
-        return;
-    }
-
-    if (! (tFileName.endsWith(".zip", Qt::CaseInsensitive) ) )
-    {
-        tFileName += ".zip";
-    }
-
-    // quazip
-
-    QProcess * tProcess = new QProcess(this);
-
-    QString tProgram = "zip";
-    QStringList tArguments;
-    tArguments << tArguments << "-rFS" << tFileName << "\.";
-
-    tProcess->setWorkingDirectory(mIBFTemporaryDir->path());
-    tProcess->start(tProgram, tArguments);
-
-    setWindowModified(false);
-    setWindowFilePath(tFileName);
-
-    IBFUpdateTitle();
+    this->QuaSaveAsDocument();
 }
 
-void IBFMainWindow::on_actionQuit_triggered()
+void QuaMainWindow::on_actionQuit_triggered()
 {
 
 }
 
-void IBFMainWindow::on_actionPreview_triggered()
+void QuaMainWindow::on_actionPreview_triggered()
 {
     if ( mQuaTextEdit->isVisible() )
     {
@@ -486,11 +561,10 @@ void IBFMainWindow::on_actionPreview_triggered()
     }
 }
 
-void IBFMainWindow::on_mIBFTreeView_selectionChanged_triggered(const QModelIndex & current, const QModelIndex & previous)
+void QuaMainWindow::on_mIBFTreeView_selectionChanged_triggered(const QModelIndex & current, const QModelIndex & previous)
 {
     if ( mQuaTextEdit->document()->isModified() )
     {
-        // document path?
         mQuaTextEdit->IBFSaveToFile(mQuaTextEdit->windowFilePath());
     }
 
@@ -549,7 +623,7 @@ void IBFMainWindow::on_mIBFTreeView_selectionChanged_triggered(const QModelIndex
 
 }
 
-void IBFMainWindow::on_mIBFFileSystemModelDirs_fileRenamed_triggered(const QString &path, const QString &oldName, const QString &newName)
+void QuaMainWindow::on_mIBFFileSystemModelDirs_fileRenamed_triggered(const QString &path, const QString &oldName, const QString &newName)
 {
 //    QString tPath = path + "/" + newName;
 
